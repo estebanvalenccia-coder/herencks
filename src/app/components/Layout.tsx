@@ -37,11 +37,24 @@ export function Layout() {
   }, []);
 
   // Simular contador del carrito
-  useEffect(() => {
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    setCartCount(cart.length);
-  }, [location]);
+   useEffect(() => {
+  const loadCartCount = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData.user;
+    if (!user) return;
 
+    const { data, error } = await supabase
+      .from("carrito")
+      .select("id")
+      .eq("user_id", user.id);
+
+    if (!error) {
+      setCartCount(data.length);
+    }
+  };
+
+  loadCartCount();
+}, [location]);
   // Cargar configuración de Herenc(IA) e iconos
   useEffect(() => {
     const loadSettings = () => {

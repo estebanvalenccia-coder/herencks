@@ -5,7 +5,7 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 import { StripeCheckout } from "../components/StripeCheckout";
 
-interface CartItem {
+interface  {
   id: number;
   name: string;
   price: number;
@@ -13,8 +13,8 @@ interface CartItem {
   quantity: number;
 }
 
-export function Cart() {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+export function 
+  const [s, setItem useState<Item[]>(
   const [paymentMethod, setPaymentMethod] = useState("tarjeta");
   const [deliveryMethod, setDeliveryMethod] = useState("envio"); // "envio" o "recoger"
   const [showStripeCheckout, setShowStripeCheckout] = useState(false);
@@ -22,7 +22,7 @@ export function Cart() {
   const [shippingCost, setShippingCost] = useState(5);
 
   useEffect(() => {
-    loadCart();
+    load
 
     // Verificar si Stripe está habilitado
     const stripeSettings = localStorage.getItem("stripeSettings");
@@ -38,37 +38,37 @@ export function Cart() {
       setShippingCost(cost || 5);
     }
 
-    window.addEventListener("storage", loadCart);
-    return () => window.removeEventListener("storage", loadCart);
+    window.addEventListener("storage", load
+    return () => window.removeEventListener("storage", load
   }, []);
 
-  const loadCart = () => {
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    setCartItems(cart);
+  const load) => {
+    const SON.parse(localStorage.getItem("") |]");
+    sets();
   };
 
   const updateQuantity = (id: number, delta: number) => {
-    const updatedCart = cartItems.map(item => {
+    const updatedtemp(item => {
       if (item.id === id) {
         const newQuantity = Math.max(1, item.quantity + delta);
         return { ...item, quantity: newQuantity };
       }
       return item;
     });
-    setCartItems(updatedCart);
-    localStorage.setItem("cart", JSON.stringify(updatedCart));
+    sets(updated);
+    localStorage.setItem("SON.stringify(updated));
   };
 
   const removeItem = (id: number) => {
-    const updatedCart = cartItems.filter(item => item.id !== id);
-    setCartItems(updatedCart);
-    localStorage.setItem("cart", JSON.stringify(updatedCart));
+    const updatedtemlter(item => item.id !== id);
+    sets(updated);
+    localStorage.setItem("SON.stringify(updated));
     toast.success("Producto eliminado del carrito");
   };
 
-  const clearCart = () => {
-    setCartItems([]);
-    localStorage.setItem("cart", JSON.stringify([]));
+  const clear) => {
+    sets([]);
+    localStorage.setItem("SON.stringify([]));
     toast.success("Carrito vaciado");
   };
 
@@ -94,31 +94,31 @@ export function Cart() {
       if (confirmed) {
         console.log("✅ Pedido confirmado con Bizum");
         toast.success("¡Pedido confirmado! Recibirás una confirmación una vez verifiquemos el pago de Bizum.");
-        clearCart();
+        clear
       } else {
         console.log("❌ Usuario canceló la confirmación de Bizum");
       }
     } else {
       console.log(`💰 Método de pago: ${paymentMethod}`);
       toast.success(`Pedido procesado con ${paymentMethod}. ¡Gracias por tu compra!`);
-      clearCart();
+      clear
     }
   };
 
   const handleStripeSuccess = () => {
     setShowStripeCheckout(false);
-    clearCart();
+    clear
   };
 
   const handleStripeCancel = () => {
     setShowStripeCheckout(false);
   };
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
+  const subtotal = s.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
   const shipping = deliveryMethod === "recoger" ? 0 : shippingCost;
   const total = subtotal + shipping;
 
-  if (cartItems.length === 0) {
+  if (s.length === 0) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center">
         <div className="text-center">
@@ -144,16 +144,16 @@ export function Cart() {
             Carrito de Compras
           </h1>
           <p className="text-muted-foreground">
-            {cartItems.length} {cartItems.length === 1 ? "producto" : "productos"} en tu carrito
+            {s.length} {Itemngth === 1 ? "producto" : "productos"} en tu carrito
           </p>
         </div>
       </div>
 
       <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
+          {/* ms */}
           <div className="lg:col-span-2 space-y-4">
-            {cartItems.map((item, index) => (
+            {s.map((item, index) => (
               <motion.div
                 key={item.id}
                 initial={{ opacity: 0, x: -20 }}
@@ -207,7 +207,7 @@ export function Cart() {
             ))}
 
             <button
-              onClick={clearCart}
+              onClick={clear
               className="w-full py-3 text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
             >
               Vaciar carrito
