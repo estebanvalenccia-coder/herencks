@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { MessageSquare, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { supabase } from "../lib/supabase";
 
 export function ChatboxWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -8,25 +9,45 @@ export function ChatboxWidget() {
   const [isEnabled, setIsEnabled] = useState(false);
 
   useEffect(() => {
-    const settings = localStorage.getItem("chatboxSettings");
-    if (settings) {
-      const parsed = JSON.parse(settings);
-      setChatboxUrl(parsed.url || "");
-      setIsEnabled(parsed.enabled || false);
-    }
+    const loadSettings = async () => {
+      const { data, error } = await supabase
+        .from("settings")
+        .select("valor")
+        .eq("clave", "chatboxSettings")
+        .maybeSingle(); // 🔥 mejor que single()
 
-    // Escuchar cambios en localStorage
-    const handleStorageChange = () => {
-      const settings = localStorage.getItem("chatboxSettings");
-      if (settings) {
-        const parsed = JSON.parse(settings);
-        setChatboxUrl(parsed.url || "");
-        setIsEnabled(parsed.enabled || false);
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      if (data?.valor) {
+        setChatboxUrl(data.valor.url || "");
+        setIsEnabled(data.valor.enabled || false);
       }
     };
 
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+    loadSettings();
+
+    // 🔥 realtime (opcional pero pro)
+    const channel = supabase
+      .channel("settings-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "settings"
+        },
+        () => {
+          loadSettings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   if (!isEnabled || !chatboxUrl) {
@@ -35,7 +56,6 @@ export function ChatboxWidget() {
 
   return (
     <>
-      {/* Floating Button */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -50,7 +70,6 @@ export function ChatboxWidget() {
         )}
       </AnimatePresence>
 
-      {/* Chatbox Window */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -59,7 +78,6 @@ export function ChatboxWidget() {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             className="fixed bottom-6 right-6 z-50 w-[90vw] sm:w-96 h-[600px] max-h-[80vh] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col"
           >
-            {/* Header */}
             <div className="bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-5 h-5" />
@@ -73,7 +91,6 @@ export function ChatboxWidget() {
               </button>
             </div>
 
-            {/* Iframe */}
             <div className="flex-1 overflow-hidden">
               <iframe
                 src={chatboxUrl}
