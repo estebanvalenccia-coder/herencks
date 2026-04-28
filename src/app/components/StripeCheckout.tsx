@@ -111,9 +111,11 @@ export function StripeCheckout({ amount, onSuccess, onCancel }: StripeCheckoutPr
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                amount: amount,
-                email: email,
-                items: cart,
+              amount: Math.round(amount * 100),
+             email: email,
+             items: cart,
+              }),
+              
               }),
             });
           } catch (fetchError: any) {
