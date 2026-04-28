@@ -3,7 +3,7 @@ import { Search, ShoppingCart, Heart, Filter } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { useLocation, Link } from "react-router";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../lib/supabase";
 
 export function Products() {
   const location = useLocation();
