@@ -1,11 +1,23 @@
 import { useState, useEffect } from "react";
-import { Trash2, Plus, Minus, ShoppingBag, CreditCard, Banknote, Smartphone, Truck, Store, Wallet } from "lucide-react";
+import {
+  Trash2,
+  Plus,
+  Minus,
+  ShoppingBag,
+  CreditCard,
+  Banknote,
+  Smartphone,
+  Truck,
+  Store,
+  Wallet,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { StripeCheckout } from "../components/StripeCheckout";
+import { supabase } from "../../lib/supabase";
 
-interface  {
+interface Item {
   id: number;
   name: string;
   price: number;
@@ -13,118 +25,190 @@ interface  {
   quantity: number;
 }
 
-export function 
-  const [s, setItem useState<Item[]>(
+export function Cart() {
+  const [items, setItems] = useState<Item[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("tarjeta");
-  const [deliveryMethod, setDeliveryMethod] = useState("envio"); // "envio" o "recoger"
+  const [deliveryMethod, setDeliveryMethod] = useState("envio");
   const [showStripeCheckout, setShowStripeCheckout] = useState(false);
   const [stripeEnabled, setStripeEnabled] = useState(false);
   const [shippingCost, setShippingCost] = useState(5);
 
   useEffect(() => {
-    load
-
-    // Verificar si Stripe está habilitado
-    const stripeSettings = localStorage.getItem("stripeSettings");
-    if (stripeSettings) {
-      const { enabled, publishableKey } = JSON.parse(stripeSettings);
-      setStripeEnabled(enabled && publishableKey);
-    }
-
-    // Cargar precio de envío configurado
-    const shippingSettings = localStorage.getItem("shippingSettings");
-    if (shippingSettings) {
-      const { cost } = JSON.parse(shippingSettings);
-      setShippingCost(cost || 5);
-    }
-
-    window.addEventListener("storage", load
-    return () => window.removeEventListener("storage", load
+    loadCart();
+    loadSettings();
   }, []);
 
-  const load) => {
-    const SON.parse(localStorage.getItem("") |]");
-    sets();
+  const loadCart = () => {
+    const savedCart = localStorage.getItem("cart");
+
+    if (savedCart) {
+      setItems(JSON.parse(savedCart));
+    }
+  };
+
+  const loadSettings = async () => {
+    try {
+      const { data: stripeData } = await supabase
+        .from("settings")
+        .select("value")
+        .eq("key", "stripeSettings")
+        .maybeSingle();
+
+      if (stripeData?.value) {
+        const { enabled, publishableKey } = stripeData.value;
+
+        setStripeEnabled(enabled && publishableKey);
+      }
+
+      const { data: shippingData } = await supabase
+        .from("settings")
+        .select("value")
+        .eq("key", "shippingSettings")
+        .maybeSingle();
+
+      if (shippingData?.value) {
+        const { cost } = shippingData.value;
+
+        setShippingCost(cost || 5);
+      }
+    } catch (error) {
+      console.error("Error cargando configuración:", error);
+    }
   };
 
   const updateQuantity = (id: number, delta: number) => {
-    const updatedtemp(item => {
+    const updated = items.map((item) => {
       if (item.id === id) {
         const newQuantity = Math.max(1, item.quantity + delta);
-        return { ...item, quantity: newQuantity };
+
+        return {
+          ...item,
+          quantity: newQuantity,
+        };
       }
+
       return item;
     });
-    sets(updated);
-    localStorage.setItem("SON.stringify(updated));
+
+    setItems(updated);
+
+    localStorage.setItem("cart", JSON.stringify(updated));
   };
 
   const removeItem = (id: number) => {
-    const updatedtemlter(item => item.id !== id);
-    sets(updated);
-    localStorage.setItem("SON.stringify(updated));
+    const updated = items.filter((item) => item.id !== id);
+
+    setItems(updated);
+
+    localStorage.setItem("cart", JSON.stringify(updated));
+
     toast.success("Producto eliminado del carrito");
   };
 
-  const clear) => {
-    sets([]);
-    localStorage.setItem("SON.stringify([]));
+  const clearCart = () => {
+    setItems([]);
+
+    localStorage.setItem("cart", JSON.stringify([]));
+
     toast.success("Carrito vaciado");
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     console.log("🛒 Procesando pedido:", {
       paymentMethod,
       deliveryMethod,
       total,
-      stripeEnabled
+      stripeEnabled,
     });
+
+    try {
+      await supabase.from("pedidos").insert([
+        {
+          items,
+          total,
+          payment_method: paymentMethod,
+          delivery_method: deliveryMethod,
+          status: "pending",
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      console.log("✅ Pedido guardado en Supabase");
+    } catch (error) {
+      console.error("❌ Error guardando pedido:", error);
+    }
 
     if (paymentMethod === "tarjeta" && stripeEnabled) {
       console.log("💳 Abriendo checkout de Stripe");
+
       setShowStripeCheckout(true);
     } else if (paymentMethod === "bizum") {
       console.log("📱 Método de pago: Bizum");
-      // Confirmar que el usuario ha enviado el Bizum
+
       const confirmed = window.confirm(
-        `¿Has enviado €${total.toFixed(2)} por Bizum al número +34 631 18 92 44?\n\n` +
-        `Si ya lo enviaste, presiona OK para confirmar tu pedido.\n` +
-        `Si aún no lo has enviado, presiona Cancelar y envía el Bizum primero.`
+        `¿Has enviado €${total.toFixed(
+          2
+        )} por Bizum al número +34 631 18 92 44?\n\n` +
+          `Si ya lo enviaste, presiona OK para confirmar tu pedido.\n` +
+          `Si aún no lo has enviado, presiona Cancelar y envía el Bizum primero.`
       );
+
       if (confirmed) {
         console.log("✅ Pedido confirmado con Bizum");
-        toast.success("¡Pedido confirmado! Recibirás una confirmación una vez verifiquemos el pago de Bizum.");
-        clear
+
+        toast.success(
+          "¡Pedido confirmado! Recibirás una confirmación una vez verifiquemos el pago de Bizum."
+        );
+
+        clearCart();
       } else {
         console.log("❌ Usuario canceló la confirmación de Bizum");
       }
     } else {
       console.log(`💰 Método de pago: ${paymentMethod}`);
-      toast.success(`Pedido procesado con ${paymentMethod}. ¡Gracias por tu compra!`);
-      clear
+
+      toast.success(
+        `Pedido procesado con ${paymentMethod}. ¡Gracias por tu compra!`
+      );
+
+      clearCart();
     }
   };
 
   const handleStripeSuccess = () => {
     setShowStripeCheckout(false);
-    clear
+
+    clearCart();
   };
 
   const handleStripeCancel = () => {
     setShowStripeCheckout(false);
   };
 
-  const subtotal = s.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
-  const shipping = deliveryMethod === "recoger" ? 0 : shippingCost;
+  const subtotal = items.reduce(
+    (sum, item) => sum + (item.price || 0) * item.quantity,
+    0
+  );
+
+  const shipping =
+    deliveryMethod === "recoger" ? 0 : shippingCost;
+
   const total = subtotal + shipping;
 
-  if (s.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center">
         <div className="text-center">
           <ShoppingBag className="w-20 h-20 mx-auto text-muted-foreground mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">Tu carrito está vacío</h2>
-          <p className="text-muted-foreground mb-6">Añade productos para comenzar tu compra</p>
+
+          <h2 className="text-2xl font-bold text-foreground mb-2">
+            Tu carrito está vacío
+          </h2>
+
+          <p className="text-muted-foreground mb-6">
+            Añade productos para comenzar tu compra
+          </p>
+
           <Link
             to="/productos"
             className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
@@ -143,17 +227,18 @@ export function
           <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
             Carrito de Compras
           </h1>
+
           <p className="text-muted-foreground">
-            {s.length} {Itemngth === 1 ? "producto" : "productos"} en tu carrito
+            {items.length}{" "}
+            {items.length === 1 ? "producto" : "productos"} en tu carrito
           </p>
         </div>
       </div>
 
       <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* ms */}
           <div className="lg:col-span-2 space-y-4">
-            {s.map((item, index) => (
+            {items.map((item, index) => (
               <motion.div
                 key={item.id}
                 initial={{ opacity: 0, x: -20 }}
@@ -171,7 +256,10 @@ export function
 
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-foreground">{item.name}</h3>
+                    <h3 className="font-semibold text-foreground">
+                      {item.name}
+                    </h3>
+
                     <button
                       onClick={() => removeItem(item.id)}
                       className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
@@ -186,20 +274,32 @@ export function
 
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => updateQuantity(item.id, -1)}
+                      onClick={() =>
+                        updateQuantity(item.id, -1)
+                      }
                       className="p-2 bg-muted hover:bg-accent rounded-lg transition-colors"
                     >
                       <Minus className="w-4 h-4" />
                     </button>
-                    <span className="w-12 text-center font-medium">{item.quantity}</span>
+
+                    <span className="w-12 text-center font-medium">
+                      {item.quantity}
+                    </span>
+
                     <button
-                      onClick={() => updateQuantity(item.id, 1)}
+                      onClick={() =>
+                        updateQuantity(item.id, 1)
+                      }
                       className="p-2 bg-muted hover:bg-accent rounded-lg transition-colors"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
+
                     <span className="ml-auto font-semibold text-foreground">
-                      €{((item.price || 0) * item.quantity).toFixed(2)}
+                      €
+                      {(
+                        (item.price || 0) * item.quantity
+                      ).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -207,138 +307,11 @@ export function
             ))}
 
             <button
-              onClick={clear
+              onClick={clearCart}
               className="w-full py-3 text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
             >
               Vaciar carrito
             </button>
-          </div>
-
-          {/* Summary */}
-          <div className="lg:col-span-1">
-            {showStripeCheckout ? (
-              <div className="sticky top-24">
-                <StripeCheckout
-                  amount={total}
-                  onSuccess={handleStripeSuccess}
-                  onCancel={handleStripeCancel}
-                />
-              </div>
-            ) : (
-              <div className="bg-card border border-border rounded-2xl p-6 sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto">
-                <h2 className="text-xl font-bold text-foreground mb-6">Resumen del pedido</h2>
-
-                <div className="mb-6">
-                <h3 className="font-semibold text-foreground mb-3">Método de entrega</h3>
-                <div className="space-y-2">
-                  <DeliveryOption
-                    icon={Truck}
-                    label="Envío a domicilio"
-                    sublabel={`€${shippingCost.toFixed(2)}`}
-                    value="envio"
-                    selected={deliveryMethod === "envio"}
-                    onSelect={() => setDeliveryMethod("envio")}
-                  />
-                  <DeliveryOption
-                    icon={Store}
-                    label="Recoger en tienda"
-                    sublabel="¡Gratis!"
-                    value="recoger"
-                    selected={deliveryMethod === "recoger"}
-                    onSelect={() => setDeliveryMethod("recoger")}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between text-foreground">
-                  <span>Subtotal</span>
-                  <span>€{subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-foreground">
-                  <span>Envío</span>
-                  <span>{shipping === 0 ? "¡Gratis!" : `€${shipping.toFixed(2)}`}</span>
-                </div>
-                <div className="border-t border-border pt-3 flex justify-between font-bold text-lg text-foreground">
-                  <span>Total</span>
-                  <span className="text-primary">€{total.toFixed(2)}</span>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <h3 className="font-semibold text-foreground mb-3">Método de pago</h3>
-                <div className="space-y-2">
-                  <PaymentOption
-                    icon={CreditCard}
-                    label={stripeEnabled ? "Tarjeta (Stripe)" : "Tarjeta"}
-                    value="tarjeta"
-                    selected={paymentMethod === "tarjeta"}
-                    onSelect={() => setPaymentMethod("tarjeta")}
-                  />
-                  <PaymentOption
-                    icon={Wallet}
-                    label="Bizum"
-                    sublabel="+34 631 18 92 44"
-                    value="bizum"
-                    selected={paymentMethod === "bizum"}
-                    onSelect={() => setPaymentMethod("bizum")}
-                  />
-                  <PaymentOption
-                    icon={Smartphone}
-                    label="Transferencia"
-                    value="transferencia"
-                    selected={paymentMethod === "transferencia"}
-                    onSelect={() => setPaymentMethod("transferencia")}
-                  />
-                  <PaymentOption
-                    icon={Banknote}
-                    label="Efectivo"
-                    value="efectivo"
-                    selected={paymentMethod === "efectivo"}
-                    onSelect={() => setPaymentMethod("efectivo")}
-                  />
-                </div>
-              </div>
-
-              {paymentMethod === "bizum" && (
-                <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-xl">
-                  <p className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                    <Wallet className="w-4 h-4 text-primary" />
-                    Instrucciones de Pago Bizum
-                  </p>
-                  <div className="space-y-2 text-xs text-muted-foreground">
-                    <p>1. Abre tu app de banca móvil</p>
-                    <p>2. Selecciona Bizum → Enviar dinero</p>
-                    <div className="my-3 p-3 bg-background rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Número de teléfono:</p>
-                      <p className="font-mono text-base text-primary font-bold">+34 631 18 92 44</p>
-                    </div>
-                    <p>3. Importe: <span className="font-bold text-foreground text-base">€{total.toFixed(2)}</span></p>
-                    <p>4. Concepto: <span className="italic">Pedido Herencia Floristería</span></p>
-                    <div className="pt-3 mt-3 border-t border-primary/20">
-                      <p className="text-xs text-foreground">
-                        ✅ Una vez enviado el Bizum, haz clic en "Procesar pedido"
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={handleCheckout}
-                className="w-full py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors font-medium"
-              >
-                Procesar pedido
-              </button>
-
-              <Link
-                to="/productos"
-                className="block w-full py-3 text-center text-primary hover:bg-primary/10 rounded-xl transition-colors mt-2"
-              >
-                Seguir comprando
-              </Link>
-            </div>
-            )}
           </div>
         </div>
       </div>
@@ -346,7 +319,13 @@ export function
   );
 }
 
-function DeliveryOption({ icon: Icon, label, sublabel, value, selected, onSelect }: any) {
+function DeliveryOption({
+  icon: Icon,
+  label,
+  sublabel,
+  selected,
+  onSelect,
+}: any) {
   return (
     <button
       onClick={onSelect}
@@ -356,23 +335,40 @@ function DeliveryOption({ icon: Icon, label, sublabel, value, selected, onSelect
           : "border-border hover:bg-accent"
       }`}
     >
-      <Icon className={`w-5 h-5 ${selected ? "text-primary" : "text-muted-foreground"}`} />
+      <Icon
+        className={`w-5 h-5 ${
+          selected
+            ? "text-primary"
+            : "text-muted-foreground"
+        }`}
+      />
+
       <div className="flex-1 text-left">
-        <span className={`font-medium block ${selected ? "text-primary" : "text-foreground"}`}>
+        <span
+          className={`font-medium block ${
+            selected
+              ? "text-primary"
+              : "text-foreground"
+          }`}
+        >
           {label}
         </span>
-        <span className="text-xs text-muted-foreground">{sublabel}</span>
+
+        <span className="text-xs text-muted-foreground">
+          {sublabel}
+        </span>
       </div>
-      {selected && (
-        <div className="ml-auto w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-          <div className="w-2 h-2 bg-primary-foreground rounded-full" />
-        </div>
-      )}
     </button>
   );
 }
 
-function PaymentOption({ icon: Icon, label, sublabel, value, selected, onSelect }: any) {
+function PaymentOption({
+  icon: Icon,
+  label,
+  sublabel,
+  selected,
+  onSelect,
+}: any) {
   return (
     <button
       onClick={onSelect}
@@ -382,20 +378,31 @@ function PaymentOption({ icon: Icon, label, sublabel, value, selected, onSelect 
           : "border-border hover:bg-accent"
       }`}
     >
-      <Icon className={`w-5 h-5 ${selected ? "text-primary" : "text-muted-foreground"}`} />
+      <Icon
+        className={`w-5 h-5 ${
+          selected
+            ? "text-primary"
+            : "text-muted-foreground"
+        }`}
+      />
+
       <div className="flex-1 text-left">
-        <span className={`font-medium block ${selected ? "text-primary" : "text-foreground"}`}>
+        <span
+          className={`font-medium block ${
+            selected
+              ? "text-primary"
+              : "text-foreground"
+          }`}
+        >
           {label}
         </span>
+
         {sublabel && (
-          <span className="text-xs text-muted-foreground font-mono">{sublabel}</span>
+          <span className="text-xs text-muted-foreground font-mono">
+            {sublabel}
+          </span>
         )}
       </div>
-      {selected && (
-        <div className="ml-auto w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-          <div className="w-2 h-2 bg-primary-foreground rounded-full" />
-        </div>
-      )}
     </button>
   );
 }
